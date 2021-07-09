@@ -95,3 +95,10 @@ int
 sys_print(char *a){
    return print(a); 
 }
+
+//clone function that get a stack and assign it to child thread stack
+int 
+sys_clone(void){
+    void *stack = myproc()->kstack + PGSIZE - 4;
+    return clone(stack);
+}

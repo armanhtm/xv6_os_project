@@ -24,6 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int print(char *);
+int clone(void);
 
 
 // ulib.c

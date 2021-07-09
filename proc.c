@@ -538,3 +538,31 @@ print(char*a){
   cprintf("%s\n",a);
   return 1;
 }
+int 
+clone(void* stack){
+  //pid of the child thread
+    int pid;
+    //child thread creation
+    struct proc *child_thread;
+    //current thread
+    struct proc *current_thread = myproc();
+    //if creation failed return -1
+    if(!(child_thread = allocproc()))
+        return -1;
+    pid = child_thread->pid;    
+    //set this child thread registers and bases
+    child_thread->sz = current_thread->sz;
+    child_thread->pgdir = current_thread->pgdir;
+    child_thread->parent = current_thread;
+    child_thread->tf = current_thread->tf;
+    current_thread->kstack = stack;
+    //set register of child thread
+    //child_thread->tf->eax = current_thread->tf->eax;
+    acquire(&ptable.lock);
+    child_thread->state = UNUSED;
+    release(&ptable.lock);
+    cprintf("%d\n",child_thread->state);
+    kfree(child_thread->kstack);
+    panic("exit thread");
+    return pid;
+}
