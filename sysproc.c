@@ -99,6 +99,13 @@ sys_print(char *a){
 //clone function that get a stack and assign it to child thread stack
 int 
 sys_clone(void){
-    void *stack = myproc()->kstack + PGSIZE - 4;
+    void *stack;
+    if(argptr(0,(char**)&stack,PGSIZE) < 0)
+        return -1;
     return clone(stack);
+}
+int 
+sys_thread_create(void (*fn) (void *), void *arg){
+  //void *stack = malloc(KSTACKSIZE);
+  return thread_create(fn,arg);
 }

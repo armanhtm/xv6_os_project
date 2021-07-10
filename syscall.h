@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_print  22
 #define SYS_clone  23
+#define SYS_thread_create 24

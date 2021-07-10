@@ -554,15 +554,44 @@ clone(void* stack){
     child_thread->sz = current_thread->sz;
     child_thread->pgdir = current_thread->pgdir;
     child_thread->parent = current_thread;
-    child_thread->tf = current_thread->tf;
+    *child_thread->tf = *current_thread->tf;
     current_thread->kstack = stack;
     //set register of child thread
-    //child_thread->tf->eax = current_thread->tf->eax;
+    child_thread->tf->eax = pid;
+    cprintf("%d\n",stack);
+    child_thread->tf->ebp = (uint)(stack - 8);
+    cprintf("%d\n",stack + PGSIZE - 8);
+    child_thread->tf->esp = (uint)(stack - 4);
+    cprintf("%d\n",stack + PGSIZE - 4);
+    //set files to thread
+    for(int i = 0; i < NOFILE; i++)
+        if(current_thread->ofile[i])
+             child_thread->ofile[i] = filedup(current_thread->ofile[i]);
+    //change thread name to parent thread name 
+    safestrcpy(child_thread->name,current_thread->name,sizeof(current_thread->name));  
+    //idup
+    child_thread->cwd = idup(current_thread->cwd);  
+    //change state of child thread
     acquire(&ptable.lock);
-    child_thread->state = UNUSED;
+    child_thread->state = EMBRYO;
     release(&ptable.lock);
-    cprintf("%d\n",child_thread->state);
-    kfree(child_thread->kstack);
-    panic("exit thread");
+    return pid;
+}
+int
+thread_create(void (*fn) (void *), void *arg){
+    int pid;
+    struct proc *current_thread = myproc();
+    void *stack = current_thread->kstack + PGSIZE;
+    pid = clone(stack);
+    struct proc *p;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+        if(p->pid == pid)
+            break;
+    p->tf->eip = (int)fn;
+    *((uint*)(p->tf->esp)) = (uint)arg;
+    *((uint*)(p->tf->esp - 4)) = 0xFFFFFFFF;
+    acquire(&ptable.lock);
+    p->state = RUNNABLE;
+    release(&ptable.lock);
     return pid;
 }
