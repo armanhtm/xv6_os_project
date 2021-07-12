@@ -24,8 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int print(char *);
-int clone(void);
-int thread_create(void (*) (void *), void *);
+int clone(void*);
 
 
 // ulib.c

@@ -86,6 +86,7 @@ allocproc(void)
   return 0;
 
 found:
+  p->number_of_thread = 0;
   p->state = EMBRYO;
   p->pid = nextpid++;
 
@@ -542,6 +543,7 @@ int
 clone(void* stack){
   //pid of the child thread
     int pid;
+    uint nbp,nsp,parent_copy;
     //child thread creation
     struct proc *child_thread;
     //current thread
@@ -557,12 +559,19 @@ clone(void* stack){
     *child_thread->tf = *current_thread->tf;
     current_thread->kstack = stack;
     //set register of child thread
-    child_thread->tf->eax = pid;
-    cprintf("%d\n",stack);
-    child_thread->tf->ebp = (uint)(stack - 8);
-    cprintf("%d\n",stack + PGSIZE - 8);
-    child_thread->tf->esp = (uint)(stack - 4);
-    cprintf("%d\n",stack + PGSIZE - 4);
+    child_thread->tf->eax = 0;
+    cprintf("%d\n",current_thread->tf->ebp);
+    nbp = current_thread->tf->ebp & 0x0FFF;
+    cprintf("%d,%d\n",nbp,stack);
+	  nbp = nbp | (uint)stack;
+    cprintf("%d\n",nbp);
+	  nsp = current_thread->tf->esp & 0x0FFF;
+	  nsp = nsp | (uint)stack;
+	//Change stack pointer and base pointer
+	  child_thread->tf->ebp = nbp;
+	  child_thread->tf->esp = nsp;
+    parent_copy = current_thread->tf->esp & 0xF000;
+	  memmove(stack, (void*)parent_copy, 0x1000);
     //set files to thread
     for(int i = 0; i < NOFILE; i++)
         if(current_thread->ofile[i])
@@ -572,26 +581,6 @@ clone(void* stack){
     //idup
     child_thread->cwd = idup(current_thread->cwd);  
     //change state of child thread
-    acquire(&ptable.lock);
-    child_thread->state = EMBRYO;
-    release(&ptable.lock);
-    return pid;
-}
-int
-thread_create(void (*fn) (void *), void *arg){
-    int pid;
-    struct proc *current_thread = myproc();
-    void *stack = current_thread->kstack + PGSIZE;
-    pid = clone(stack);
-    struct proc *p;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-        if(p->pid == pid)
-            break;
-    p->tf->eip = (int)fn;
-    *((uint*)(p->tf->esp)) = (uint)arg;
-    *((uint*)(p->tf->esp - 4)) = 0xFFFFFFFF;
-    acquire(&ptable.lock);
-    p->state = RUNNABLE;
-    release(&ptable.lock);
+    child_thread->state = RUNNABLE;    
     return pid;
 }

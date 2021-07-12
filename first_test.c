@@ -1,18 +1,46 @@
 #include "types.h"
-#include "stat.h"
 #include "user.h"
 
-void *sum(int a,int b){
-    printf(1,"%d\n",a + b);
+#undef NULL
+#define NULL ((void*)0)
+
+int ppid;
+#define PGSIZE (4096)
+
+volatile int global = 1;
+
+#define assert(x) if (x) {} else { \
+   printf(1, "%s: %d ", __FILE__, __LINE__); \
+   printf(1, "assert failed (%s)\n", # x); \
+   printf(1, "TEST FAILED\n"); \
+   kill(ppid); \
+   exit(); \
 }
-int main(){
-    int pid;
-    int* a = (int*)malloc(2 * sizeof(int));
-    char* b = (char *)malloc(12 * sizeof(char*));
-    a[0] = 1;
-    a[1] = 2;
-    print(b);
-    pid = thread_create(sum(a[0],a[1]),a);
-    printf(1,"%d\n",pid);
-    exit();
+
+void worker(void *arg_ptr);
+
+int
+main(int argc, char *argv[])
+{
+   ppid = getpid();
+   void *stack = malloc(PGSIZE*2);
+   assert(stack != NULL);
+   if((uint)stack % PGSIZE)
+     stack = stack + (4096 - (uint)stack % PGSIZE);
+
+   int clone_pid = clone(stack);
+   if (clone_pid == 0) {
+     worker(0);
+   }
+   assert(clone_pid > 0);
+   while(global != 5);
+   printf(1, "TEST PASSED\n");
+   exit();
+}
+
+void
+worker(void *arg_ptr) {
+   assert(global == 1);
+   global = 5;
+   exit();
 }

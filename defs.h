@@ -122,7 +122,6 @@ void            wakeup(void*);
 void            yield(void);
 int             print(char *);
 int             clone(void*);
-int             thread_create(void (*) (void *), void *);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
