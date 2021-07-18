@@ -122,6 +122,9 @@ void            wakeup(void*);
 void            yield(void);
 int             print(char *);
 int             clone(void*);
+int             join(void);
+int             lock(int*);
+int             unlock(int*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

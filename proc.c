@@ -13,7 +13,7 @@ struct {
 } ptable;
 
 static struct proc *initproc;
-
+static struct spinlock slock;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -23,6 +23,7 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
+  initlock(&slock, "guard");
   initlock(&ptable.lock, "ptable");
 }
 
@@ -86,6 +87,7 @@ allocproc(void)
   return 0;
 
 found:
+  //init number of threads when we make a process
   p->number_of_thread = 0;
   p->state = EMBRYO;
   p->pid = nextpid++;
@@ -160,18 +162,29 @@ int
 growproc(int n)
 {
   uint sz;
+  struct proc *p;
   struct proc *curproc = myproc();
-
+  acquire(&ptable.lock);
   sz = curproc->sz;
   if(n > 0){
-    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0){
+      release(&ptable.lock);
       return -1;
+    }
   } else if(n < 0){
-    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0){
+      release(&ptable.lock);
       return -1;
+    }
   }
   curproc->sz = sz;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if (p->pgdir == curproc->pgdir){
+	    p->sz = sz;
+    }
+  }
   switchuvm(curproc);
+  release(&ptable.lock);
   return 0;
 }
 
@@ -276,7 +289,9 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+  //wait function should ignore threads we handle them in join function
+  if(curproc->number_of_thread > 0)
+    return -1;
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -558,6 +573,7 @@ clone(void* stack){
     child_thread->parent = current_thread;
     *child_thread->tf = *current_thread->tf;
     current_thread->kstack = stack;
+    current_thread->number_of_thread ++;
     //set register of child thread
     child_thread->tf->eax = 0;
     cprintf("%d\n",current_thread->tf->ebp);
@@ -583,4 +599,84 @@ clone(void* stack){
     //change state of child thread
     child_thread->state = RUNNABLE;    
     return pid;
+}
+int 
+join(void){
+  struct proc *p;
+  int pid;
+  struct proc *current_proc = myproc();
+  //join should not handle processes wait function should handle them
+  if(current_proc->number_of_thread <= 0)
+    return -1;
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for zombie children.
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != current_proc)
+        continue;
+      if(p->state == ZOMBIE){
+
+        // Found one.
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+	 	    current_proc->number_of_thread --;
+        if (current_proc <= 0){
+		      freevm(p->pgdir);
+		    }
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any threads.
+    if(current_proc->number_of_thread <= 0 || current_proc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for threads to exit.  (See wakeup1 call in proc_exit.)
+    sleep(current_proc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
+int
+lock(int* l)
+{
+  acquire(&slock);
+	if (*l == 0){
+    *l = 1;
+    release(&slock);
+		return 0;
+  }
+
+   while (*l == 1)
+  {
+    sleep(l, &slock);
+  }
+
+  *l = 1;
+  release(&slock);
+
+  return 0;
+}
+
+int
+unlock(int* l)
+{
+  acquire(&slock);
+  if (*l == 0){
+    release(&slock);
+    return -1;
+  }
+
+  *l = 0;
+  wakeup(l);
+  release(&slock);
+  return 0;
 }
