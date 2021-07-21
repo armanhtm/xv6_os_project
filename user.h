@@ -23,7 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int print(char *);
+int print(void);
 int clone(void*);
 int join(void);
 

@@ -549,8 +549,8 @@ procdump(void)
   }
 }
 int 
-print(char*a){
-  a = "hello world";
+print(void){
+  char *a = "hello world";
   cprintf("%s\n",a);
   return 1;
 }
@@ -564,7 +564,7 @@ clone(void* stack){
     //current thread
     struct proc *current_thread = myproc();
     //if creation failed return -1
-    if(!(child_thread = allocproc()))
+    if((child_thread = allocproc()) == 0)
         return -1;
     pid = child_thread->pid;    
     //set this child thread registers and bases
@@ -572,15 +572,14 @@ clone(void* stack){
     child_thread->pgdir = current_thread->pgdir;
     child_thread->parent = current_thread;
     *child_thread->tf = *current_thread->tf;
-    current_thread->kstack = stack;
+    //current_thread->kstack = stack;
     current_thread->number_of_thread ++;
     //set register of child thread
-    child_thread->tf->eax = 0;
-    cprintf("%d\n",current_thread->tf->ebp);
+    //cprintf("%d\n",current_thread->tf->ebp);
     nbp = current_thread->tf->ebp & 0x0FFF;
-    cprintf("%d,%d\n",nbp,stack);
+    //cprintf("%d,%d\n",nbp,stack);
 	  nbp = nbp | (uint)stack;
-    cprintf("%d\n",nbp);
+    //cprintf("%d\n",nbp);
 	  nsp = current_thread->tf->esp & 0x0FFF;
 	  nsp = nsp | (uint)stack;
 	//Change stack pointer and base pointer
@@ -588,6 +587,7 @@ clone(void* stack){
 	  child_thread->tf->esp = nsp;
     parent_copy = current_thread->tf->esp & 0xF000;
 	  memmove(stack, (void*)parent_copy, 0x1000);
+    child_thread->tf->eax = 0;
     //set files to thread
     for(int i = 0; i < NOFILE; i++)
         if(current_thread->ofile[i])
@@ -605,18 +605,14 @@ join(void){
   struct proc *p;
   int pid;
   struct proc *current_proc = myproc();
-  //join should not handle processes wait function should handle them
   if(current_proc->number_of_thread <= 0)
     return -1;
   acquire(&ptable.lock);
   for(;;){
-    // Scan through table looking for zombie children.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != current_proc)
         continue;
       if(p->state == ZOMBIE){
-
-        // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -633,15 +629,11 @@ join(void){
         return pid;
       }
     }
-
-    // No point waiting if we don't have any threads.
     if(current_proc->number_of_thread <= 0 || current_proc->killed){
       release(&ptable.lock);
       return -1;
     }
-
-    // Wait for threads to exit.  (See wakeup1 call in proc_exit.)
-    sleep(current_proc, &ptable.lock);  //DOC: wait-sleep
+    sleep(current_proc, &ptable.lock); 
   }
 }
 
@@ -654,15 +646,12 @@ lock(int* l)
     release(&slock);
 		return 0;
   }
-
    while (*l == 1)
   {
     sleep(l, &slock);
   }
-
   *l = 1;
   release(&slock);
-
   return 0;
 }
 
@@ -674,7 +663,6 @@ unlock(int* l)
     release(&slock);
     return -1;
   }
-
   *l = 0;
   wakeup(l);
   release(&slock);

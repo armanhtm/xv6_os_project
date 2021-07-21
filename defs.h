@@ -120,7 +120,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int             print(char *);
+int             print(void);
 int             clone(void*);
 int             join(void);
 int             lock(int*);

@@ -92,8 +92,8 @@ sys_uptime(void)
 
 //print hello world
 int 
-sys_print(char *a){
-   return print(a); 
+sys_print(void){
+   return print(); 
 }
 
 //clone function that get a stack and assign it to child thread stack

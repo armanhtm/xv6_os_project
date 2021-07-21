@@ -20,11 +20,11 @@ thread_create(void (*fn) (void *), void *arg)
   if (threadId == 0) //Child Code
   {
     fn(arg);
-	free(stack);
-    exit();
+    return threadId;
   }
   else //Parent Code
   {
+    join();
     return threadId;
   }
 
